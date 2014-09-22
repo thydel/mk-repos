@@ -16,9 +16,9 @@ hg.base     := ssh://$(hg.remote)/$(hg.dir)
 repos := mk-repos a-thy
 roles := ar-my-account
 
-mk-repos.description      = GNU Make helper to manage public and private repository skeleton creation
-a-thy.description         = Ansible playbook for installing my own user account setup on a new instance
-ar-my-account.description = Ansible role to create self user account
+mk-repos.desc      := GNU Make helper to manage public and private repository skeleton creation
+a-thy.desc         := Ansible playbook for installing my own user account setup on a new instance
+ar-my-account.desc := Ansible role to create self user account
 
 #### gnumakism
 
@@ -101,9 +101,9 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 hgrc.ui   := [ui]\nusername = $(my.name) <$(my.email)>\n
 hgrc.path  = [paths]\ndefault = $(hg.base)/$*
 
-ignore     = .hgremote .gitremote .gitconfig
-hgignore   = .git .gitignore $(ignore)
-gitignore  = .hg .hgignore $(ignore)
+ignore     = .hgremote .gitremote .gitconfig README.html
+hgignore   = .git/ .gitignore $(ignore)
+gitignore  = .hg/ .hgignore $(ignore)
 
 ## rules commands parts
 
@@ -128,12 +128,12 @@ $(foreach _,$(hg.files),$(call rule,$_))
 .gitconfig += (cd $*; git config --local user.name "$(my.name)");
 .gitconfig += (cd $*; git config --local user.email $(my.email))
 
-.gitignore  = echo $(hgignore) | tr ' ' '\n'
-
-github.api  := https://api.github.com
-github.repo  = { "name": "$*", "description": "$($*.description)" }
+.gitignore  = echo $(gitignore) | tr ' ' '\n'
 
 # rule .gitremote
+
+github.api  := https://api.github.com
+github.repo  = { "name": "$*", "description": "$($*.desc)" }
 
 github.check   = jq -e .name > /dev/null
 github.existp  = curl -s $(github.api)/$(github.user)/$* | $(github.check)
@@ -159,3 +159,6 @@ github := /usr/local/bin/github
 github: $(github);
 $(github):; sudo gem install json github
 
+%.html: %.md; markdown $< > $@
+
+readme: README.html;
