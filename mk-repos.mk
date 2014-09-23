@@ -108,10 +108,12 @@ repos.work := $(repos:%=$(work)/%)
 repos: $(repos.work);
 $(repos.work): % : $(repos.dep);
 
-roles: $(roles);
-$(roles): % : %/README.md $(repos.dep);
+roles.work := $(roles:%=$(work)/%)
 
-$(foreach _,$(repos) $(roles),$(eval $_: $(work)/$_))
+roles: $(roles.work);
+$(roles.work): % : %/README.md $(repos.dep);
+
+$(foreach _,$(repos) $(roles),$(eval $_: $(work)/$_;))
 
 #### meta rules
 
@@ -137,7 +139,7 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 
 #### galaxy
 
-%/README.md:; ansible-galaxy init $(*F)
+%/README.md:; ansible-galaxy init $*
 
 #### mercurial
 
