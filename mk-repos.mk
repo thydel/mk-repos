@@ -13,6 +13,10 @@ hg.base     := ssh://$(hg.remote)/$(hg.dir)
 
 #### repos
 
+# local workdir
+WORKDIR ?= ~/usr/$(github.user)
+work     = $(WORKDIR)
+
 repos := mk-repos a-thy
 roles := ar-my-account
 
@@ -23,7 +27,7 @@ ar-my-account.desc := Ansible role to create self user account
 #### gnumakism
 
 # default to harmless
-top:; @date
+top: usage; @date
 
 # default SHELL is /bin/sh
 SHELL := /bin/bash
@@ -39,16 +43,50 @@ $(self):;
 
 # how to name and where to install cmd
 
-name    := mkr
-local   := /usr/local
-$(name) := $(local)/bin/$(name)
+github.repo := mk-repos
+install     := mkr
+local       := /usr/local
+$(install)  := $(local)/bin/$(install)
 
 # install target not available to installed instance
 
-ifneq ($(self),$($(name)))
-install: $($(name));
-$($(name)): $(self); sudo install $< $@
+ifneq ($(self),$($(install)))
+install: $($(install));
+$($(install)): $(self); sudo install $< $@
 endif
+
+#### help
+
+.PHONY: usage help show
+
+meta := usage help show install
+
+~  := usage
+$~ := echo;
+ifneq ($(self),$($(install)))
+$~ += echo -e "\tusage: make -f $(self) help";
+$~ += echo -e "\tusage: $(install) help \# after make -f $(self) install";
+else
+$~ += echo -e "\tusage: $(install) help";
+$~ += echo -e "\tinstalled from: https://github.com/$(github.user)/$(github.repo).git";
+endif
+$~ += echo;
+$~:; @$($@)
+
+~  := help
+$~ := echo;
+$~ += echo -e "\tmeta targets: $(meta)";
+$~ += echo -e "\trun targets: [argvar=val]... [repo-name]... [role-name]...";
+$~ += echo -e "\targ vars: WORKDIR GITHUBPASS";
+$~ += echo -e "\trepo names: $(repos)";
+$~ += echo -e "\troles names: $(roles)";
+$~ += echo;
+$~:; @$($@)
+
+~ := show
+$~.vars := my.name my.email github.user hg.base work local install
+$~ += echo -e '$1_$($1)';
+$~:; @echo; ($(foreach _,$($@.vars),$(call $@,$_))) | column -t -s_ | sed -e $$'s/^/\t/'; echo
 
 #### asserts
 
@@ -56,15 +94,24 @@ endif
 
 $(if $(filter $(shell ssh-add -l > /dev/null || echo T),T),$(error you agent has no keys))
 
+# must learn how to better auth
+
+targets := $(or $(MAKECMDGOALS),usage)
+. := $(or $(filter $(targets),$(meta)),$(GITHUBPASS),$(error no GITHUBPASS))
+
 #### top level targets and rules
 
 repos.dep := %/.hg %/.hg/hgrc %/.hgignore %/.hgremote %/.git %/.gitconfig %/.gitignore %/.gitremote
 
-repos: $(repos);
-$(repos): % : $(repos.dep);
+repos.work := $(repos:%=$(work)/%)
+
+repos: $(repos.work);
+$(repos.work): % : $(repos.dep);
 
 roles: $(roles);
 $(roles): % : %/README.md $(repos.dep);
+
+$(foreach _,$(repos) $(roles),$(eval $_: $(work)/$_))
 
 #### meta rules
 
@@ -90,7 +137,7 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 
 #### galaxy
 
-%/README.md:; ansible-galaxy init $*
+%/README.md:; ansible-galaxy init $(*F)
 
 #### mercurial
 
@@ -99,7 +146,7 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 ## strings parts
 
 hgrc.ui   := [ui]\nusername = $(my.name) <$(my.email)>\n
-hgrc.path  = [paths]\ndefault = $(hg.base)/$*
+hgrc.path  = [paths]\ndefault = $(hg.base)/$(*F)
 
 ignore     = .hgremote .gitremote .gitconfig README.html
 hgignore   = .git/ .gitignore $(ignore)
@@ -113,7 +160,7 @@ hgrc       = echo -e '$(hgrc.ui)$(hgrc.path)'
 .hgignore += echo $(hgignore) | tr ' ' '\n'
 
 # ansible like remote execution of this makefile
-.hgremote  = ssh -A $(hg.remote) make --no-print-directory -C $(hg.dir) -f - $*/.hg < $(self)
+.hgremote  = ssh -A $(hg.remote) make --no-print-directory -C $(hg.dir) -f - $(*F)/.hg < $(self)
 
 hg.files := .hg/hgrc .hgignore .hgremote
 $(foreach _,$(hg.files),$(call rule,$_))
@@ -124,7 +171,7 @@ $(foreach _,$(hg.files),$(call rule,$_))
 
 ## rules commands parts
 
-.gitconfig  = (cd $*; git remote add origin git@github.com:$(github.user)/$*)
+.gitconfig  = (cd $*; git remote add origin git@github.com:$(github.user)/$(*F));
 .gitconfig += (cd $*; git config --local user.name "$(my.name)");
 .gitconfig += (cd $*; git config --local user.email $(my.email))
 
@@ -133,10 +180,10 @@ $(foreach _,$(hg.files),$(call rule,$_))
 # rule .gitremote
 
 github.api  := https://api.github.com
-github.repo  = { "name": "$*", "description": "$($*.desc)" }
+github.repo  = { "name": "$(*F)", "description": "$($(*F).desc)" }
 
 github.check   = jq -e .name > /dev/null
-github.existp  = curl -s $(github.api)/$(github.user)/$* | $(github.check)
+github.existp  = curl -s $(github.api)/$(github.user)/$(*F) | $(github.check)
 github.create  = curl -s -u $(github.user):$$GITHUBPASS $(github.api)/user/repos -d '$(github.repo)'
 github.create += | $(github.check)
 
