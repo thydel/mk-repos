@@ -2,14 +2,18 @@
 
 #### ids and services
 
-my.name     := Thierry Delamare
-my.email    := t.delamare@epiconcept.fr
+my.name      := Thierry Delamare
+my.email     := t.delamare@epiconcept.fr
 
-github.user := thydel
+github.user  := thydel
 
-hg.remote   := admin@mercurial.epiconcept.net
-hg.dir      := usr
-hg.base     := ssh://$(hg.remote)/$(hg.dir)
+hg.remote    := admin@mercurial.epiconcept.net
+hg.dir       := usr
+hg.base      := ssh://$(hg.remote)/$(hg.dir)
+
+hgweb.remote := hgweb@repo.charenton.tld
+hgweb.dir    := usr
+hgweb.base   := ssh://$(hg.remote)/$(hg.dir)
 
 #### repos
 
@@ -18,11 +22,15 @@ WORKDIR ?= ~/usr/$(github.user)
 work     = $(WORKDIR)
 
 repos := mk-repos a-thy
-roles := ar-my-account
+roles := ar-my-account ar-runp ar-fix-bash-bug
+roles += ar-dummy
 
 mk-repos.desc      := GNU Make helper to manage public and private repository skeleton creation
 a-thy.desc         := Ansible playbook for installing my own user account setup on a new instance
 ar-my-account.desc := Ansible role to create self user account
+ar-dummy.desc	   := Test mk-repos
+ar-runp.desc       := Ansible role to embed runp module
+ar-fix-bash-bug    := fix bash bug on various debian release
 
 #### gnumakism
 
@@ -57,9 +65,9 @@ endif
 
 #### help
 
-.PHONY: usage help show
-
-meta := usage help show install
+phony := usage help show
+meta := $(phony) install
+.PHONY: $(phony)
 
 ~  := usage
 $~ := echo;
@@ -96,12 +104,18 @@ $(if $(filter $(shell ssh-add -l > /dev/null || echo T),T),$(error you agent has
 
 # must learn how to better auth
 
+# now bash check with ': $${GITHUBPASS:?};' before using it
+ifdef NEVER
 targets := $(or $(MAKECMDGOALS),usage)
 . := $(or $(filter $(targets),$(meta)),$(GITHUBPASS),$(error no GITHUBPASS))
+endif
 
 #### top level targets and rules
 
-repos.dep := %/.hg %/.hg/hgrc %/.hgignore %/.hgremote %/.git %/.gitconfig %/.gitignore %/.gitremote
+repos.dep := %/.hg %/.git
+repos.dep += %/LICENSE.md
+repos.dep += %/.hg/hgrc %/.hgignore %/.hgremote %/.hgfirstcommit
+repos.dep += %/.gitconfig %/.gitignore %/.gitremote %/.gitfirstcommit
 
 repos.work := $(repos:%=$(work)/%)
 
@@ -141,6 +155,12 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 
 %/README.md:; ansible-galaxy init $*
 
+#### common
+
+license := LICENSE.md
+
+%/$(license): $(license); install -m 0444 $< $@
+
 #### mercurial
 
 %/.hg:; hg init $*
@@ -150,7 +170,7 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 hgrc.ui   := [ui]\nusername = $(my.name) <$(my.email)>\n
 hgrc.path  = [paths]\ndefault = $(hg.base)/$(*F)
 
-ignore     = .hgremote .gitremote .gitconfig README.html
+ignore     = .hgremote .gitconfig .gitremote .gitfirstcommit .hgfirstcommit README.html
 hgignore   = .git/ .gitignore $(ignore)
 gitignore  = .hg/ .hgignore $(ignore)
 
@@ -164,7 +184,11 @@ hgrc       = echo -e '$(hgrc.ui)$(hgrc.path)'
 # ansible like remote execution of this makefile
 .hgremote  = ssh -A $(hg.remote) make --no-print-directory -C $(hg.dir) -f - $(*F)/.hg < $(self)
 
-hg.files := .hg/hgrc .hgignore .hgremote
+.hgfirstcommit  = (cd $*; hg add);
+.hgfirstcommit += (cd $*; hg commit -m Initial);
+.hgfirstcommit += (cd $*; hg push)
+
+hg.files := .hg/hgrc .hgignore .hgremote .hgfirstcommit
 $(foreach _,$(hg.files),$(call rule,$_))
 
 #### git
@@ -184,12 +208,19 @@ $(foreach _,$(hg.files),$(call rule,$_))
 github.api  := https://api.github.com
 github.repo  = { "name": "$(*F)", "description": "$($(*F).desc)" }
 
-github.check   = jq -e .name > /dev/null
+github.check  := jq -e .name > /dev/null
 github.existp  = curl -s $(github.api)/$(github.user)/$(*F) | $(github.check)
-github.create  = curl -s -u $(github.user):$$GITHUBPASS $(github.api)/user/repos -d '$(github.repo)'
+github.create  = : $${GITHUBPASS:?};
+github.create += curl -s -u $(github.user):$$GITHUBPASS $(github.api)/user/repos -d '$(github.repo)'
 github.create += | $(github.check)
 
 .gitremote     = $(github.existp) || $(github.create)
+
+# rule .gitfirstcommit
+
+.gitfirstcommit  = (cd $*; git add .);
+.gitfirstcommit += (cd $*; git commit -m Initial);
+.gitfirstcommit += (cd $*; git push -u origin master)
 
 jq := /usr/bin/jq
 jq: $(jq)
@@ -199,7 +230,7 @@ $(jq):; sudo aptitude install jq
 
 # rules generator
 
-git.files := .gitconfig .gitignore .gitremote
+git.files := .gitconfig .gitignore .gitremote .gitfirstcommit
 $(foreach _,$(git.files),$(call rule,$_))
 
 ####

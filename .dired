@@ -1,0 +1,4 @@
+Local Variables:
+dired-omit-mode: nil
+dired-omit-files: "\\.gitconfig|\\.gitremote$"
+End:
