@@ -12,8 +12,9 @@ hg.dir       := usr
 hg.base      := ssh://$(hg.remote)/$(hg.dir)
 
 hgweb.remote := hgweb@repo.charenton.tld
-hgweb.dir    := usr
-hgweb.base   := ssh://$(hg.remote)/$(hg.dir)
+hgweb.dir    := usr/$(github.user)
+hgweb.base   := ssh://$(hgweb.remote)/$(hgweb.dir)
+hgweb.meta   := .hgwebremote .hgwebpath
 
 #### repos
 
@@ -22,15 +23,19 @@ WORKDIR ?= ~/usr/$(github.user)
 work     = $(WORKDIR)
 
 repos := mk-repos a-thy
-roles := ar-my-account ar-runp ar-fix-bash-bug
-roles += ar-dummy
+roles := ar-my-account ar-runp ar-fix-bash-bug ar-ansible-version ar-patch ar-misc
+roles += ar-dummy ar-emacs24
 
 mk-repos.desc      := GNU Make helper to manage public and private repository skeleton creation
 a-thy.desc         := Ansible playbook for installing my own user account setup on a new instance
 ar-my-account.desc := Ansible role to create self user account
 ar-dummy.desc	   := Test mk-repos
 ar-runp.desc       := Ansible role to embed runp module
-ar-fix-bash-bug    := fix bash bug on various debian release
+ar-fix-bash-bug.desc := Fix bash bug on various debian release
+ar-ansible-version.desc := Set ansible version fact
+ar-patch.desc      := Ansible role to embed patch module
+ar-misc.desc       := Ansible role for various simple tasks
+ar-emacs24.desc    := Ansible role to install emacs24
 
 #### gnumakism
 
@@ -100,7 +105,7 @@ $~:; @echo; ($(foreach _,$($@.vars),$(call $@,$_))) | column -t -s_ | sed -e $$'
 
 # My agent has a maximum lifetime
 
-$(if $(filter $(shell ssh-add -l > /dev/null || echo T),T),$(error you agent has no keys))
+$(if $(filter $(shell ssh-add -l > /dev/null || echo T),T),$(error your agent has no keys))
 
 # must learn how to better auth
 
@@ -114,6 +119,7 @@ endif
 
 repos.dep := %/.hg %/.git
 repos.dep += %/LICENSE.md
+repos.dep += $(hgweb.meta:%=\%/%)
 repos.dep += %/.hg/hgrc %/.hgignore %/.hgremote %/.hgfirstcommit
 repos.dep += %/.gitconfig %/.gitignore %/.gitremote %/.gitfirstcommit
 
@@ -159,7 +165,8 @@ rule = $(eval %/$1:; @($$($$(@F))) > $$@)
 
 license := LICENSE.md
 
-%/$(license): $(license); install -m 0444 $< $@
+#%/$(license): $(license); install -m 0444 $< $@
+%/$(license):; curl -s https://raw.githubusercontent.com/$(github.user)/mk-repos/master/LICENSE.md > $@
 
 #### mercurial
 
@@ -171,6 +178,7 @@ hgrc.ui   := [ui]\nusername = $(my.name) <$(my.email)>\n
 hgrc.path  = [paths]\ndefault = $(hg.base)/$(*F)
 
 ignore     = .hgremote .gitconfig .gitremote .gitfirstcommit .hgfirstcommit README.html
+ignore    += $(hgweb.meta)
 hgignore   = .git/ .gitignore $(ignore)
 gitignore  = .hg/ .hgignore $(ignore)
 
@@ -190,6 +198,22 @@ hgrc       = echo -e '$(hgrc.ui)$(hgrc.path)'
 
 hg.files := .hg/hgrc .hgignore .hgremote .hgfirstcommit
 $(foreach _,$(hg.files),$(call rule,$_))
+
+#### hgweb
+
+# ansible like remote execution of this makefile
+.hgwebremote = ssh -A $(hgweb.remote) make --no-print-directory -C $(hgweb.dir) -f - $(*F)/.hg < $(self)
+
+.hgwebpath.augeas  = set /augeas/load/Puppet/incl $*/.hg/hgrc\n
+.hgwebpath.augeas += load\n
+.hgwebpath.augeas += set /files/$*/.hg/hgrc/paths/hgweb "$(hgweb.base)/$(*F)"\n
+.hgwebpath.augeas += save
+
+.hgwebpath = echo -e '$(.hgwebpath.augeas)' | augtool
+
+.hgweblocal.augeas  =
+
+$(foreach _,$(hgweb.meta),$(call rule,$_))
 
 #### git
 
