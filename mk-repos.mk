@@ -24,18 +24,20 @@ work     = $(WORKDIR)
 
 repos := mk-repos a-thy
 roles := ar-my-account ar-runp ar-fix-bash-bug ar-ansible-version ar-patch ar-misc
-roles += ar-dummy ar-emacs24
+roles += ar-dummy ar-emacs24 ar-my-sudoers ar-my-screenrc
 
-mk-repos.desc      := GNU Make helper to manage public and private repository skeleton creation
-a-thy.desc         := Ansible playbook for installing my own user account setup on a new instance
-ar-my-account.desc := Ansible role to create self user account
-ar-dummy.desc	   := Test mk-repos
-ar-runp.desc       := Ansible role to embed runp module
-ar-fix-bash-bug.desc := Fix bash bug on various debian release
-ar-ansible-version.desc := Set ansible version fact
-ar-patch.desc      := Ansible role to embed patch module
-ar-misc.desc       := Ansible role for various simple tasks
-ar-emacs24.desc    := Ansible role to install emacs24
+mk-repos.desc                := GNU Make helper to manage public and private repository skeleton creation
+a-thy.desc                   := Ansible playbook for installing my own user account setup on a new instance
+ar-my-account.desc           := Ansible role to create self user account
+ar-dummy.desc                := Test mk-repos
+ar-runp.desc                 := Ansible role to embed runp module
+ar-fix-bash-bug.desc         := Fix bash bug on various debian release
+ar-ansible-version.desc      := Set ansible version fact
+ar-patch.desc                := Ansible role to embed patch module
+ar-misc.desc                 := Ansible role for various simple tasks
+ar-emacs24.desc              := Ansible role to install emacs24
+ar-my-sudoers.desc           := Ansible role to install my sudoers config
+ar-my-screenrc.desc          := Ansible role to install my screenrc
 
 #### gnumakism
 
@@ -119,8 +121,8 @@ endif
 
 repos.dep := %/.hg %/.git
 repos.dep += %/LICENSE.md
-repos.dep += $(hgweb.meta:%=\%/%)
 repos.dep += %/.hg/hgrc %/.hgignore %/.hgremote %/.hgfirstcommit
+repos.dep += $(hgweb.meta:%=\%/%)
 repos.dep += %/.gitconfig %/.gitignore %/.gitremote %/.gitfirstcommit
 
 repos.work := $(repos:%=$(work)/%)
@@ -210,8 +212,6 @@ $(foreach _,$(hg.files),$(call rule,$_))
 .hgwebpath.augeas += save
 
 .hgwebpath = echo -e '$(.hgwebpath.augeas)' | augtool
-
-.hgweblocal.augeas  =
 
 $(foreach _,$(hgweb.meta),$(call rule,$_))
 
