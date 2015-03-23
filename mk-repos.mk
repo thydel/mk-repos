@@ -24,7 +24,7 @@ work     = $(WORKDIR)
 
 repos := mk-repos a-thy
 roles := ar-my-account ar-runp ar-fix-bash-bug ar-ansible-version ar-patch ar-misc
-roles += ar-dummy ar-emacs24 ar-my-sudoers ar-my-screenrc
+roles += ar-dummy ar-emacs24 ar-my-sudoers ar-my-screenrc ar-my-bashrc
 
 mk-repos.desc                := GNU Make helper to manage public and private repository skeleton creation
 a-thy.desc                   := Ansible playbook for installing my own user account setup on a new instance
@@ -38,6 +38,7 @@ ar-misc.desc                 := Ansible role for various simple tasks
 ar-emacs24.desc              := Ansible role to install emacs24
 ar-my-sudoers.desc           := Ansible role to install my sudoers config
 ar-my-screenrc.desc          := Ansible role to install my screenrc
+ar-my-bashrc.desc            := Ansible role to install my bashrc
 
 #### gnumakism
 
