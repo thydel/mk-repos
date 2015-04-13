@@ -25,7 +25,7 @@ work     = $(WORKDIR)
 repos := mk-repos a-thy
 roles := ar-my-account ar-runp ar-fix-bash-bug ar-ansible-version ar-patch ar-misc
 roles += ar-dummy ar-emacs24 ar-my-sudoers ar-my-screenrc ar-my-bashrc ar-my-dotemacs
-roles += ar-vagrant ar-r-base
+roles += ar-vagrant ar-r-base ar-vagrant-wheezy-box
 
 mk-repos.desc                := GNU Make helper to manage public and private repository skeleton creation
 a-thy.desc                   := Ansible playbook for installing my own user account setup on a new instance
@@ -44,6 +44,7 @@ ar-my-dotemacs.desc          := Ansible role to install my dotemacs
 
 ar-vagrant                   := Ansible role to install latest Vagrant
 ar-r-base                    := Ansible role to install r-base from cran.r-project.org
+ar-vagrant-wheezy-box	     := Ansible role using git@github.com:dotzero/vagrant-debian-wheezy-64.git
 
 #### gnumakism
 
