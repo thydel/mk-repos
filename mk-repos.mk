@@ -7,19 +7,24 @@ my.email     := t.delamare@epiconcept.fr
 
 github.user  := thydel
 
+local.prefix := epi
+
+repo.base     = $(or $(and $(GIT),$(github.user)),$(local.prefix))
+repo.dir      = usr/$(repo.base)
+
 hg.remote    := admin@mercurial.epiconcept.net
-hg.dir       := usr
-hg.base      := ssh://$(hg.remote)/$(hg.dir)
+hg.dir        = $(repo.dir)
+hg.base       = ssh://$(hg.remote)/$(hg.dir)
 
 hgweb.remote := hgweb@repo.charenton.tld
-hgweb.dir    := usr/$(github.user)
-hgweb.base   := ssh://$(hgweb.remote)/$(hgweb.dir)
+hgweb.dir     = $(repo.dir)
+hgweb.base    = ssh://$(hgweb.remote)/$(hgweb.dir)
 hgweb.meta   := .hgwebremote .hgwebpath
 
 #### repos
 
 # local workdir
-WORKDIR ?= ~/usr/$(github.user)
+WORKDIR ?= ~/usr/$(or $(and $(GIT),$(github.user)),$(local.prefix))
 work     = $(WORKDIR)
 
 repos := mk-repos a-thy
@@ -42,9 +47,16 @@ ar-my-screenrc.desc          := Ansible role to install my screenrc
 ar-my-bashrc.desc            := Ansible role to install my bashrc
 ar-my-dotemacs.desc          := Ansible role to install my dotemacs
 
-ar-vagrant                   := Ansible role to install latest Vagrant
-ar-r-base                    := Ansible role to install r-base from cran.r-project.org
-ar-vagrant-wheezy-box	     := Ansible role using git@github.com:dotzero/vagrant-debian-wheezy-64.git
+ar-vagrant.desc              := Ansible role to install latest Vagrant
+ar-r-base.desc               := Ansible role to install r-base from cran.r-project.org
+ar-vagrant-wheezy-box.desc   := Ansible role using git@github.com:dotzero/vagrant-debian-wheezy-64.git
+
+~  := repo
+$~  =
+$~ += $(eval $(strip $1).desc := $(strip $2))
+$~ += $(eval repos            += $(strip $1))
+
+$(call repo, ai-misc, Ansible inventory for misc play)
 
 #### gnumakism
 
@@ -126,11 +138,29 @@ endif
 
 #### top level targets and rules
 
+~  := repos.dep.hg
+$~ := %/.hg
+$~ += %/LICENSE.md
+$~ += %/.hg/hgrc %/.hgignore %/.hgremote %/.hgfirstcommit
+$~ += $(hgweb.meta:%=\%/%)
+
+~  := repos.dep.git
+$~ := %/.git
+$~ += %/.gitconfig %/.gitignore %/.gitremote %/.gitfirstcommit
+
+GIT :=
+
+repos.dep  =
+repos.dep += $(repos.dep.hg)
+repos.dep += $(and $(GIT),$(repos.dep.git))
+
+ifdef NEVER
 repos.dep := %/.hg %/.git
 repos.dep += %/LICENSE.md
 repos.dep += %/.hg/hgrc %/.hgignore %/.hgremote %/.hgfirstcommit
 repos.dep += $(hgweb.meta:%=\%/%)
 repos.dep += %/.gitconfig %/.gitignore %/.gitremote %/.gitfirstcommit
+endif
 
 repos.work := $(repos:%=$(work)/%)
 
@@ -273,3 +303,25 @@ $(github):; sudo gem install json github
 %.html: %.md; markdown $< > $@
 
 readme: README.html;
+
+################
+
+git := GIT := T
+
+vartar := git
+
+$(vartar):; @: $($@) $(eval $($@))
+
+################
+
+st :=
+st += hg st;
+st += git status;
+
+comment := Allow separate use of hg and git
+
+com :=
+com += hg com -m '$(comment)';
+com += git commit -am '$(comment)';
+
+st com:; $($@)
